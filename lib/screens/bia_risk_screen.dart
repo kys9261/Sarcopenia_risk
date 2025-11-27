@@ -16,7 +16,9 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
   final _apiService = ApiService();
   final _formValues = <String, String>{};
   final _focusNode = FocusNode();
-  
+  // 선택된 성별 상태 (화면에서 변경 가능)
+  late String _gender;
+
   int _currentStep = 0;
   bool _loading = false;
   String? _error;
@@ -25,6 +27,7 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
   @override
   void initState() {
     super.initState();
+    _gender = widget.gender; // 초기값 설정
     // 모든 필드 초기화
     for (var field in BiaField.fields) {
       _formValues[field.key] = '';
@@ -89,7 +92,7 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
 
     try {
       final input = BiaInput(
-        sex: widget.gender,
+        sex: _gender,
         heHt: double.parse(_formValues['HE_ht']!),
         biaFfm: double.parse(_formValues['BIA_FFM']!),
         biaLra: double.parse(_formValues['BIA_LRA']!),
@@ -131,6 +134,9 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 화면 상단에 성별 선택 표시
+            _buildGenderSelector(),
+            const SizedBox(height: 12),
             _buildProgressSection(),
             const SizedBox(height: 16),
             if (_filledCount > 0) _buildFilledChips(),
@@ -278,6 +284,9 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
               key: ValueKey(_currentField.key),
               focusNode: _focusNode,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+              ],
               decoration: InputDecoration(
                 hintText: '숫자 입력 후 Enter',
                 filled: true,
@@ -467,6 +476,47 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // 성별 선택 위젯
+  Widget _buildGenderSelector() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () => setState(() => _gender = 'male'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _gender == 'male' ? const Color(0xFF6366F1) : Colors.white,
+              foregroundColor: _gender == 'male' ? Colors.white : Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+              elevation: 0,
+            ),
+            child: const Text('남성', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () => setState(() => _gender = 'female'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _gender == 'female' ? const Color(0xFF6366F1) : Colors.white,
+              foregroundColor: _gender == 'female' ? Colors.white : Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+              elevation: 0,
+            ),
+            child: const Text('여성', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ],
     );
   }
 }

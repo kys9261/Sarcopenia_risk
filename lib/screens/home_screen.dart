@@ -9,7 +9,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _showGenderSheet = false;
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          // 성별 선택 바텀시트
-          if (_showGenderSheet) _buildGenderSheet(),
+          // 성별 선택은 검사 화면에서 처리
         ],
       ),
     );
@@ -39,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.only(top: 40, left: 20, right: 20, bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
+        color: Color.fromRGBO(255, 255, 255, 0.8),
         border: const Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
       ),
       child: Row(
@@ -138,7 +136,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      setState(() => _showGenderSheet = true);
+                      // 바로 검사 화면으로 이동하고 해당 화면에서 성별 선택 팝업을 표시
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => BiaRiskScreen(gender: 'male'),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF6366F1),
@@ -162,88 +166,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildGenderSheet() {
-    return GestureDetector(
-      onTap: () => setState(() => _showGenderSheet = false),
-      child: Container(
-        color: Colors.black.withOpacity(0.3),
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: GestureDetector(
-            onTap: () {}, // 내부 클릭 시 닫히지 않도록
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '성별을 선택해주세요',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _genderButton('남성', 'male'),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _genderButton('여성', 'female'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _genderButton(String label, String gender) {
-    return ElevatedButton(
-      onPressed: () {
-        setState(() => _showGenderSheet = false);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BiaRiskScreen(gender: gender),
-          ),
-        );
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFFE5E7EB)),
-        ),
-        elevation: 0,
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
       ),
     );
   }
