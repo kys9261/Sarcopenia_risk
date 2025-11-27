@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: sarcopenia-postgres-prod
+    environment:
+      - POSTGRES_DB=sarcopenia_db
+      - POSTGRES_USER=sarcopenia_user
+      - POSTGRES_PASSWORD=sarcopenia_pass
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: always
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sarcopenia-backend-prod
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_M_PATH=/app/artifacts/model_male_10.cbm
+      - MODEL_F_PATH=/app/artifacts/model_female_10.cbm
+      - PORT=8000
+      - DATABASE_URL=postgresql+psycopg2://sarcopenia_user:sarcopenia_pass@db:5432/sarcopenia_db
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  db_data:

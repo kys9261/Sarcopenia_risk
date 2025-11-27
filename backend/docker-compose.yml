@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: sarcopenia-postgres
+    environment:
+      - POSTGRES_DB=sarcopenia_db
+      - POSTGRES_USER=sarcopenia_user
+      - POSTGRES_PASSWORD=sarcopenia_pass
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sarcopenia-backend
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_M_PATH=/app/artifacts/model_male_10.cbm
+      - MODEL_F_PATH=/app/artifacts/model_female_10.cbm
+      - PORT=8000
+      - DATABASE_URL=postgresql+psycopg2://sarcopenia_user:sarcopenia_pass@db:5432/sarcopenia_db
+    volumes:
+      # 모델 파일을 호스트에서 마운트
+      - ./artifacts:/app/artifacts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  db_data:
