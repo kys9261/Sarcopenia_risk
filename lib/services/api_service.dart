@@ -5,7 +5,7 @@ import '../models/bia_models.dart';
 class ApiService {
   // 개발 환경: localhost
   // 프로덕션 환경: 실제 서버 URL로 변경
-  static const String baseUrl = 'http://localhost:8000/api';
+  static const String baseUrl = 'http://dhu-lab.iptime.org:8000/api';
 
   Future<PredictionResult> predict(BiaInput input) async {
     try {

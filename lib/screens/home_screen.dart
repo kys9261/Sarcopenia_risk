@@ -44,16 +44,22 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
+          // 로고를 동그랗게 표시하고 1px 테두리 추가
           Container(
             width: 32,
             height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [Colors.indigo.shade400, Colors.indigo.shade600],
+              border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/logo.jpg',
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
               ),
             ),
-            child: const Icon(Icons.health_and_safety, color: Colors.white, size: 18),
           ),
           const SizedBox(width: 12),
           const Text(
