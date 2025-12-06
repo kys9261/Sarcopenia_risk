@@ -8,6 +8,8 @@ services:
       - POSTGRES_DB=sarcopenia_db
       - POSTGRES_USER=sarcopenia_user
       - POSTGRES_PASSWORD=sarcopenia_pass
+    ports:
+      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     restart: always
