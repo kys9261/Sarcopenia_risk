@@ -19,7 +19,8 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
   // 선택된 성별 상태 (화면에서 변경 가능)
   late String _gender;
 
-  int _currentStep = 0;
+  // 모든 입력 필드를 한 화면에서 관리
+  final Map<String, TextEditingController> _controllers = {};
   bool _loading = false;
   String? _error;
   PredictionResult? _result;
@@ -28,11 +29,17 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
   void initState() {
     super.initState();
     _gender = widget.gender; // 초기값 설정
-    // 모든 필드 초기화
+    // 모든 필드 초기화 및 컨트롤러 생성
     for (var field in BiaField.fields) {
       _formValues[field.key] = '';
+      final c = TextEditingController();
+      c.addListener(() {
+        _formValues[field.key] = c.text;
+        setState(() {});
+      });
+      _controllers[field.key] = c;
     }
-    // 첫 입력 필드에 포커스
+    // 포커스(필요시)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
@@ -40,6 +47,11 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
 
   @override
   void dispose() {
+    // 컨트롤러 해제
+    for (var c in _controllers.values) {
+      c.dispose();
+    }
+    // _focusNode는 한 번만 dispose
     _focusNode.dispose();
     super.dispose();
   }
@@ -48,31 +60,10 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
   int get _filledCount => _formValues.values.where((v) => v.trim().isNotEmpty).length;
   double get _progress => _filledCount / _totalSteps;
   
-  BiaField get _currentField => BiaField.fields[_currentStep];
-  bool get _canProceed => _formValues[_currentField.key]?.trim().isNotEmpty ?? false;
-
-  void _nextStep() {
-    if (!_canProceed) return;
-    
-    if (_currentStep < _totalSteps - 1) {
-      setState(() {
-        _currentStep++;
-      });
-      _focusNode.requestFocus();
-    }
-  }
-
-  void _previousStep() {
-    if (_currentStep > 0) {
-      setState(() {
-        _currentStep--;
-      });
-      _focusNode.requestFocus();
-    }
-  }
+  bool get _allFilled => _formValues.values.every((v) => v.trim().isNotEmpty);
 
   Future<void> _submit() async {
-    if (!_canProceed) return;
+    if (!_allFilled) return;
 
     // 모든 필드 검증
     for (var field in BiaField.fields) {
@@ -139,8 +130,6 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
             const SizedBox(height: 12),
             _buildProgressSection(),
             const SizedBox(height: 16),
-            if (_filledCount > 0) _buildFilledChips(),
-            if (_filledCount > 0) const SizedBox(height: 16),
             _buildInputCard(),
             if (_error != null) ...[
               const SizedBox(height: 16),
@@ -195,54 +184,6 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
     );
   }
 
-  Widget _buildFilledChips() {
-    final filledFields = BiaField.fields
-        .take(_currentStep)
-        .where((field) => _formValues[field.key]?.trim().isNotEmpty ?? false)
-        .toList();
-
-    if (filledFields.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: filledFields.map((field) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  field.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _formValues[field.key]!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildInputCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -262,126 +203,47 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '다음 값을 입력하세요',
+            '모든 값을 입력하세요',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: Colors.grey.shade600,
             ),
           ),
+          const SizedBox(height: 12),
+          ...BiaField.fields.map((field) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(field.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _controllers[field.key],
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                    decoration: InputDecoration(
+                      hintText: '숫자 입력',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
           const SizedBox(height: 8),
-          Text(
-            _currentField.label,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (_allFilled && !_loading) ? _submit : null,
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+              child: Text(_loading ? '계산 중...' : '위험 점수 계산', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             ),
-          ),
-          const SizedBox(height: 16),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: TextField(
-              key: ValueKey(_currentField.key),
-              focusNode: _focusNode,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-              decoration: InputDecoration(
-                hintText: '숫자 입력 후 Enter',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-              ),
-              controller: TextEditingController(
-                text: _formValues[_currentField.key],
-              )..selection = TextSelection.collapsed(
-                  offset: _formValues[_currentField.key]?.length ?? 0,
-                ),
-              onChanged: (value) {
-                setState(() {
-                  _formValues[_currentField.key] = value;
-                });
-              },
-              onSubmitted: (_) {
-                if (_currentStep < _totalSteps - 1) {
-                  _nextStep();
-                } else {
-                  _submit();
-                }
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              OutlinedButton(
-                onPressed: _currentStep > 0 ? _previousStep : null,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  '이전',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _currentStep > 0 ? Colors.grey.shade700 : Colors.grey.shade400,
-                  ),
-                ),
-              ),
-              if (_currentStep < _totalSteps - 1)
-                ElevatedButton(
-                  onPressed: _canProceed ? _nextStep : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    '다음',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                )
-              else
-                ElevatedButton(
-                  onPressed: (_canProceed && !_loading) ? _submit : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6366F1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    _loading ? '계산 중...' : '위험 점수 계산',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                ),
-            ],
           ),
         ],
       ),
