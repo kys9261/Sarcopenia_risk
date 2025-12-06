@@ -52,7 +52,12 @@ class BIAInput(BaseModel):
     HE_ht: float; BIA_FFM: float; BIA_LRA: float; BIA_LLA: float; BIA_LRL: float; BIA_LLL: float; BIA_TBW: float; BIA_ICW: float; BIA_ECW: float; BIA_WBPA50: float
 
 class Prediction(BaseModel):
-    id: int; risk_score: float; risk_class: str; model_version: str; used_model: str; explanations: Optional[List[Dict]] = None
+    id: int
+    risk_score: float
+    risk_class: str
+    model_version: str
+    used_model: str
+    explanations: Optional[List[Dict]] = None
 
 class PredictionRecordResponse(BaseModel):
     id: int
