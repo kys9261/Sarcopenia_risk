@@ -7,7 +7,10 @@ from catboost import CatBoostClassifier, Pool
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, func
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
-import math, os
+import math, os, logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
@@ -49,7 +52,7 @@ class BIAInput(BaseModel):
     HE_ht: float; BIA_FFM: float; BIA_LRA: float; BIA_LLA: float; BIA_LRL: float; BIA_LLL: float; BIA_TBW: float; BIA_ICW: float; BIA_ECW: float; BIA_WBPA50: float
 
 class Prediction(BaseModel):
-    risk_score: float; risk_class: str; model_version: str; used_model: str; explanations: Optional[List[Dict]] = None
+    id: int; risk_score: float; risk_class: str; model_version: str; used_model: str; explanations: Optional[List[Dict]] = None
 
 class PredictionRecordResponse(BaseModel):
     id: int
@@ -67,7 +70,11 @@ model_female.load_model(os.getenv("MODEL_F_PATH", "artifacts/model_female_10.cbm
 
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ Database initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize database: {str(e)}")
 
 def choose_model(sex:str):
     if sex=='male': return model_male
@@ -116,12 +123,19 @@ def predict(bia:BIAInput):
         )
         session.add(record)
         session.commit()
-    except SQLAlchemyError:
+        logger.info(f"✅ Prediction saved successfully - ID: {record.id}, Sex: {bia.sex}")
+        session.refresh(record)
+        return {'id':record.id, 'risk_score':proba,'risk_class':risk,'model_version':APP_VERSION,'used_model':used_model,'explanations':explanations}
+    except SQLAlchemyError as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail="Failed to save prediction result")
+        logger.error(f"❌ Database error while saving prediction: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to save prediction result - Database error")
+    except Exception as e:
+        session.rollback()
+        logger.error(f"❌ Unexpected error while saving prediction: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save prediction result - {str(e)}")
     finally:
         session.close()
-    return {'risk_score':proba,'risk_class':risk,'model_version':APP_VERSION,'used_model':used_model,'explanations':explanations}
 
 @app.get('/api/predictions/{prediction_id}', response_model=PredictionRecordResponse)
 def get_prediction(prediction_id:int):
@@ -129,7 +143,9 @@ def get_prediction(prediction_id:int):
     try:
         record=session.get(PredictionRecord, prediction_id)
         if record is None:
+            logger.warning(f"⚠️ Prediction not found - ID: {prediction_id}")
             raise HTTPException(status_code=404, detail='Prediction not found')
+        logger.info(f"✅ Prediction retrieved successfully - ID: {prediction_id}")
         created_at=record.created_at.isoformat() if record.created_at else None
         return {
             'id':record.id,
@@ -150,5 +166,10 @@ def get_prediction(prediction_id:int):
             'used_model':record.used_model,
             'created_at':created_at,
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error retrieving prediction - ID: {prediction_id}, Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve prediction")
     finally:
         session.close()
