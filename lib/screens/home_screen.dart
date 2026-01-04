@@ -36,26 +36,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.only(top: 40, left: 20, right: 20, bottom: 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Color.fromRGBO(255, 255, 255, 0.8),
-        border: const Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
+        border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
       ),
       child: Row(
         children: [
           // 로고를 동그랗게 표시하고 1px 테두리 추가
           Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-            ),
+            width: 34,
+            height: 34,
             child: ClipOval(
               child: Image.asset(
                 'assets/logo.jpg',
-                width: 32,
-                height: 32,
-                fit: BoxFit.cover,
+                width: 34,
+                height: 34,
+                fit: BoxFit.fill,
               ),
             ),
           ),
@@ -140,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => BiaRiskScreen(gender: 'male'),
+                          builder: (context) => const BiaRiskScreen(gender: 'male'),
                         ),
                       );
                     },

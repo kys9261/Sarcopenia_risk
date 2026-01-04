@@ -31,6 +31,19 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
     {'key': 'weight', 'label': '체중 (kg)'},
   ];
 
+  // 각 필드 도움말 텍스트 (샘플 문장)
+  final Map<String, String> _helpTexts = {
+    'BIA_FFM': '예: 체지방을 제외한 제지방량(kg)입니다. 측정 장비의 지침을 따르세요.',
+    'BIA_LRA': '예: 오른쪽 상지의 근육량(kg)입니다. 측정 시 팔 위치를 고정하세요.',
+    'BIA_LLA': '예: 왼쪽 상지의 근육량(kg)입니다. 동일 조건에서 측정하세요.',
+    'BIA_LRL': '예: 오른쪽 하지의 근육량(kg)입니다. 체중 분산을 일정하게 유지하세요.',
+    'BIA_LLL': '예: 왼쪽 하지의 근육량(kg)입니다. 양쪽 비교를 위해 동일 자세로 측정하세요.',
+    'BIA_TBW': '예: 총 체수분(%) 또는 (L) 단위입니다. 수분 상태에 따라 값이 변할 수 있습니다.',
+    'BIA_ICW': '예: 세포내 수분량(ICW)입니다. 측정 전 충분한 휴식이 필요합니다.',
+    'BIA_ECW': '예: 세포외 수분량(ECW)입니다. 부종이 있는 경우 값이 달라질 수 있습니다.',
+    'BIA_WBPA50': '예: 전신 저주파 임피던스 값입니다. 장치와 프로토콜을 확인하세요.',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -137,16 +150,21 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
         foregroundColor: Colors.black,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildStepIndicator(),
               const SizedBox(height: 12),
-              if (_step == 0) _buildStep1(),
-              if (_step == 1) _buildStep2(),
-              if (_step == 2) _buildStep3(),
+              // 콘텐츠 영역은 남은 화면을 차지해서 스크롤이 발생하지 않도록 함
+              Expanded(
+                child: Builder(builder: (context) {
+                  if (_step == 0) return _buildStep1();
+                  if (_step == 1) return _buildStep2();
+                  return _buildStep3();
+                }),
+              ),
               const SizedBox(height: 20),
               if (_error != null) _buildErrorCard(),
             ],
@@ -157,11 +175,67 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
   }
 
   Widget _buildStepIndicator() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // 기본 정보(나이, 체중, 신장)
+    final basicKeys = ['age', 'weight', 'HE_ht'];
+    final basicFilled = basicKeys.where((k) => _formValues[k]?.trim().isNotEmpty ?? false).length;
+    final basicTotal = basicKeys.length;
+    final basicProgress = basicTotal == 0 ? 0.0 : (basicFilled / basicTotal);
+
+    // 신체 정보 (HE_ht 제외한 BiaField.fields)
+    final physicalKeys = BiaField.fields.where((f) => f.key != 'HE_ht').map((f) => f.key).toList();
+    final physicalFilled = physicalKeys.where((k) => _formValues[k]?.trim().isNotEmpty ?? false).length;
+    final physicalTotal = physicalKeys.isEmpty ? 1 : physicalKeys.length;
+    final physicalProgress = physicalTotal == 0 ? 0.0 : (physicalFilled / physicalTotal);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('단계 ${_step + 1} / 3', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
-        Text('${_formValues.values.where((v) => v.trim().isNotEmpty).length}/${_controllers.length}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('단계 ${_step + 1} / 3', style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // 기본 정보 진행도
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('기본 정보 입력', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+            Text('$basicFilled/$basicTotal', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: basicProgress.clamp(0.0, 1.0),
+            minHeight: 8,
+            backgroundColor: Colors.grey.shade200,
+            valueColor: AlwaysStoppedAnimation(const Color(0xFF6366F1)),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // 신체 정보 진행도
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('신체 정보 입력', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+            Text('$physicalFilled/$physicalTotal', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: physicalProgress.clamp(0.0, 1.0),
+            minHeight: 8,
+            backgroundColor: Colors.grey.shade200,
+            valueColor: AlwaysStoppedAnimation(const Color(0xFF6366F1)),
+          ),
+        ),
       ],
     );
   }
@@ -201,31 +275,80 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
       children: [
         Text('신체 정보 입력', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade800)),
         const SizedBox(height: 12),
-        ...BiaField.fields.where((f) => f.key != 'HE_ht').map((field) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(field.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _controllers[field.key],
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
-                  decoration: InputDecoration(
-                    hintText: '숫자 입력',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+        // 2열로 변경하고 부모 Expanded의 가로/세로 제약을 이용해 항목들이 화면에 딱 맞게 채워지도록 함
+        Expanded(
+          child: LayoutBuilder(builder: (context, constraints) {
+            final physicalFields = BiaField.fields.where((f) => f.key != 'HE_ht').toList();
+            final columns = 2;
+            final spacing = 12.0;
+            final rows = (physicalFields.length / columns).ceil();
+            final itemWidth = (constraints.maxWidth - (columns - 1) * spacing) / columns;
+            final itemHeight = (constraints.maxHeight - (rows - 1) * spacing) / rows;
+            final childAspectRatio = itemWidth / itemHeight;
+
+            return GridView.count(
+              // 부모 Expanded에서 크기를 결정하므로 스크롤 비활성화
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: columns,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              childAspectRatio: childAspectRatio,
+              children: physicalFields.map((field) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Text(field.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                        const SizedBox(width: 6),
+                        // 원형 물음표 버튼
+                        GestureDetector(
+                          onTap: () {
+                            showDialog<void>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: Text(field.label),
+                                content: Text(_helpTexts[field.key] ?? '샘플 설명입니다. 필요에 따라 수정해주세요.'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('닫기')),
+                                ],
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey.shade200,
+                            ),
+                            child: const Center(
+                              child: Icon(Icons.help_outline, size: 16, color: Colors.black54),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _controllers[field.key],
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                      decoration: InputDecoration(
+                        hintText: '숫자 입력',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            );
+          }),
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -267,10 +390,16 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
 
     final riskScore = (_result!.riskScore * 100).round();
     final riskLevel = _result!.riskScore >= 0.66
-        ? '높음'
-        : _result!.riskScore >= 0.33
-            ? '중간'
-            : '낮음';
+      ? '높음'
+      : _result!.riskScore >= 0.33
+        ? '중간'
+        : '낮음';
+
+    final Color riskColor = _result!.riskScore >= 0.66
+      ? Colors.red
+      : _result!.riskScore >= 0.33
+        ? Colors.black
+        : const Color(0xFF3AA5EB);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,17 +429,33 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '$riskScore%',
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: riskScore.toDouble()),
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          return Text(
+                            '${value.round()}%',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w600,
+                              color: riskColor,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '위험도: ${_result!.riskClass}',
-                        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                      Row(
+                        children: [
+                          const Text(
+                            '위험도: ',
+                            style: TextStyle(fontSize: 14, color: Colors.black),
+                          ),
+                          Text(
+                            '${_result!.riskClass}',
+                            style: TextStyle(fontSize: 14, color: riskColor),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -322,14 +467,15 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: riskColor),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       riskLevel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
+                        color: riskColor,
                       ),
                     ),
                   ),

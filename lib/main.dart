@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
 
 void main() {
@@ -37,8 +38,11 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
+
+    // 아주 짧게 스플래시를 보여준 뒤 메인으로 전환하고 UI 모드 복원
+    Future.delayed(const Duration(milliseconds: 2000), () {
       if (!mounted) return;
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       Navigator.of(context).pushReplacement(PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
         transitionDuration: Duration.zero,
@@ -56,7 +60,8 @@ class _SplashScreenState extends State<SplashScreen> {
       body: SizedBox.expand(
         child: Image.asset(
           'assets/splash.png',
-          fit: BoxFit.cover,
+          fit: BoxFit.fill,
+          alignment: AlignmentGeometry.center,
           errorBuilder: (context, error, stackTrace) {
             return Container(
               color: Colors.white,
