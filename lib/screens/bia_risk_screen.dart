@@ -142,6 +142,7 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('근감소증 위험 평가'),
         centerTitle: true,
@@ -150,26 +151,79 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
         foregroundColor: Colors.black,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildStepIndicator(),
-              const SizedBox(height: 12),
-              // 콘텐츠 영역은 남은 화면을 차지해서 스크롤이 발생하지 않도록 함
-              Expanded(
-                child: Builder(builder: (context) {
-                  if (_step == 0) return _buildStep1();
-                  if (_step == 1) return _buildStep2();
-                  return _buildStep3();
-                }),
-              ),
-              const SizedBox(height: 20),
-              if (_error != null) _buildErrorCard(),
-            ],
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20.0),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStepIndicator(),
+                const SizedBox(height: 12),
+                // 콘텐츠 영역
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height - 400,
+                  ),
+                  child: Builder(builder: (context) {
+                    if (_step == 0) return _buildStep1();
+                    if (_step == 1) return _buildStep2();
+                    return _buildStep3();
+                  }),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  _buildErrorCard(),
+                ],
+              ],
+            ),
           ),
         ),
+      ),
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    // 고정된 바 높이를 유지하고 내부 패딩만 사용 (키보드 이동은 호출 쪽에서 처리)
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: _step == 0
+            ? Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _step1Filled() ? () => setState(() => _step = 1) : null,
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+                      child: const Text('다음', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              )
+            : _step == 1
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => setState(() => _step = 0),
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                          child: const Text('이전', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _step2Filled() && !_loading ? _submit : null,
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
+                          child: Text(_loading ? '계산 중...' : '위험 점수 계산', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
       ),
     );
   }
@@ -241,6 +295,7 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
   }
 
   Widget _buildStep1() {
+    // 외부 SingleChildScrollView에서 스크롤 담당하므로 Column 사용
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -253,122 +308,121 @@ class _BiaRiskScreenState extends State<BiaRiskScreen> {
         _buildFieldRow(label: '체중 (kg)', keyName: 'weight', hint: '숫자 입력'),
         const SizedBox(height: 12),
         _buildFieldRow(label: '신장 (cm)', keyName: 'HE_ht', hint: '숫자 입력'),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _step1Filled() ? () => setState(() => _step = 1) : null,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-                child: const Text('다음', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-        ),
+        const SizedBox(height: 8),
       ],
     );
   }
 
   Widget _buildStep2() {
+    final physicalFields = BiaField.fields.where((f) => f.key != 'HE_ht').toList();
+
+    // 화면 크기에 따라 텍스트 크기 조정
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
+
+    // 텍스트 크기: 화면 너비에 맞춰 동적 조정
+    final labelFontSize = isSmallScreen ? 10.0 : 12.0;
+    final titleFontSize = isSmallScreen ? 12.0 : 14.0;
+    final hintFontSize = isSmallScreen ? 9.0 : 11.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('신체 정보 입력', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade800)),
-        const SizedBox(height: 12),
-        // 2열로 변경하고 부모 Expanded의 가로/세로 제약을 이용해 항목들이 화면에 딱 맞게 채워지도록 함
-        Expanded(
-          child: LayoutBuilder(builder: (context, constraints) {
-            final physicalFields = BiaField.fields.where((f) => f.key != 'HE_ht').toList();
-            final columns = 2;
-            final spacing = 12.0;
-            final rows = (physicalFields.length / columns).ceil();
-            final itemWidth = (constraints.maxWidth - (columns - 1) * spacing) / columns;
-            final itemHeight = (constraints.maxHeight - (rows - 1) * spacing) / rows;
-            final childAspectRatio = itemWidth / itemHeight;
-
-            return GridView.count(
-              // 부모 Expanded에서 크기를 결정하므로 스크롤 비활성화
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: columns,
-              crossAxisSpacing: spacing,
-              mainAxisSpacing: spacing,
-              childAspectRatio: childAspectRatio,
-              children: physicalFields.map((field) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Text(field.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                        const SizedBox(width: 6),
-                        // 원형 물음표 버튼
-                        GestureDetector(
-                          onTap: () {
-                            showDialog<void>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: Text(field.label),
-                                content: Text(_helpTexts[field.key] ?? '샘플 설명입니다. 필요에 따라 수정해주세요.'),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('닫기')),
-                                ],
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.grey.shade200,
+        Text('신체 정보 입력',
+          style: TextStyle(
+            fontSize: titleFontSize,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade800
+          )
+        ),
+        SizedBox(height: isSmallScreen ? 8 : 12),
+        // 2열 그리드: Wrap 사용
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: physicalFields.map((field) {
+            return SizedBox(
+              width: (MediaQuery.of(context).size.width - 76) / 2, // 좌우 padding 40 + 중간 spacing 12
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          field.label,
+                          style: TextStyle(
+                            fontSize: labelFontSize,
+                            fontWeight: FontWeight.w600
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        )
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          showDialog<void>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text(field.label),
+                              content: Text(_helpTexts[field.key] ?? '샘플 설명입니다. 필요에 따라 수정해주세요.'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('닫기')),
+                              ],
                             ),
-                            child: const Center(
-                              child: Icon(Icons.help_outline, size: 16, color: Colors.black54),
+                          );
+                        },
+                        child: Container(
+                          width: isSmallScreen ? 24 : 28,
+                          height: isSmallScreen ? 24 : 28,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.grey.shade200,
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.help_outline,
+                              size: isSmallScreen ? 12 : 16,
+                              color: Colors.black54
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _controllers[field.key],
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
-                      decoration: InputDecoration(
-                        hintText: '숫자 입력',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       ),
+                    ],
+                  ),
+                  SizedBox(height: isSmallScreen ? 4 : 8),
+                  TextField(
+                    controller: _controllers[field.key],
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+                    style: TextStyle(fontSize: hintFontSize),
+                    decoration: InputDecoration(
+                      hintText: '입력',
+                      hintStyle: TextStyle(fontSize: hintFontSize),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 12),
+                        borderSide: const BorderSide(color: Color(0xFFE5E7EB))
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 12),
+                        borderSide: const BorderSide(color: Color(0xFFE5E7EB))
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 8 : 12,
+                        vertical: isSmallScreen ? 8 : 12
+                      ),
+                      isDense: true,
                     ),
-                  ],
-                );
-              }).toList(),
+                  ),
+                ],
+              ),
             );
-          }),
+          }).toList(),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => setState(() => _step = 0),
-                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('이전', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _step2Filled() && !_loading ? _submit : null,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-                child: Text(_loading ? '계산 중...' : '위험 점수 계산', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
